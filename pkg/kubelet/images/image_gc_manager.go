@@ -24,9 +24,9 @@ import (
 	"sync"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -181,6 +181,7 @@ func (im *realImageGCManager) Start() {
 		if im.initialized {
 			ts = time.Now()
 		}
+		// 找出所有的 image, 并删除不再使用的 image
 		_, err := im.detectImages(ts)
 		if err != nil {
 			klog.InfoS("Failed to monitor images", "err", err)

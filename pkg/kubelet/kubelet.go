@@ -1393,7 +1393,7 @@ func (kl *Kubelet) initializeModules() error {
 		}
 	}
 
-	// Start resource analyzer
+	// Start resource analyzer, 刷新 volume stats 到缓存中
 	kl.resourceAnalyzer.Start()
 
 	return nil
@@ -1458,6 +1458,7 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 		go kl.cloudResourceSyncManager.Run(wait.NeverStop)
 	}
 
+	// 首先启动不依赖 container runtime 的一些模块
 	if err := kl.initializeModules(); err != nil {
 		kl.recorder.Eventf(kl.nodeRef, v1.EventTypeWarning, events.KubeletSetupFailed, err.Error())
 		klog.ErrorS(err, "Failed to initialize internal modules")
@@ -1470,6 +1471,7 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 	if kl.kubeClient != nil {
 		// Start syncing node status immediately, this may set up things the runtime needs to run.
 		go wait.Until(kl.syncNodeStatus, kl.nodeStatusUpdateFrequency, wait.NeverStop)
+		// 更新容器运行时启动时间, 执行首次状态同步
 		go kl.fastStatusUpdateOnce()
 
 		// start syncing lease
@@ -1479,6 +1481,7 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 
 	// Set up iptables util rules
 	if kl.makeIPTablesUtilChains {
+		// 执行 kl.syncNetworkUtil 定时同步 iptables 规则
 		kl.initNetworkUtil()
 	}
 
@@ -2395,7 +2398,7 @@ func (kl *Kubelet) cleanUpContainersInPod(podID types.UID, exitedContainerID str
 }
 
 // fastStatusUpdateOnce starts a loop that checks the internal node indexer cache for when a CIDR
-// is applied  and tries to update pod CIDR immediately. After pod CIDR is updated it fires off
+// is applied and tries to update pod CIDR immediately. After pod CIDR is updated it fires off
 // a runtime update and a node status update. Function returns after one successful node status update.
 // Function is executed only during Kubelet start which improves latency to ready node by updating
 // pod CIDR, runtime status and node statuses ASAP.
